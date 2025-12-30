@@ -41,7 +41,6 @@ async function handler(
     const fetchOptions: RequestInit = {
       method: request.method,
       headers,
-      credentials: 'include',
     };
     
     // Only include body for methods that support it
