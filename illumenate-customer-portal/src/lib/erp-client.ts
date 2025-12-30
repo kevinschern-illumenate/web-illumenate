@@ -54,11 +54,15 @@ erpClient.interceptors.response.use(
   (error: AxiosError) => {
     if (error.response) {
       // Server responded with error status
-      console.error('ERP API Error:', {
+      // Extract only serializable properties to avoid circular reference issues
+      const errorDetails = {
         status: error.response.status,
-        data: error.response.data,
+        data: typeof error.response.data === 'object' 
+          ? JSON.parse(JSON.stringify(error.response.data))
+          : error.response.data,
         url: error.config?.url,
-      });
+      };
+      console.error('ERP API Error:', JSON.stringify(errorDetails));
       
       // Handle specific error cases
       switch (error.response.status) {
