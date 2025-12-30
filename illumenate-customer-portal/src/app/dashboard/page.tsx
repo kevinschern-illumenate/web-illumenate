@@ -16,12 +16,8 @@ export default function DashboardPage() {
   useEffect(() => {
     async function loadData() {
       try {
-        // Check authentication
+        // Fetch user info for display (middleware handles auth protection)
         const loggedUser = await getLoggedUser();
-        if (!loggedUser) {
-          router.push('/login');
-          return;
-        }
         setUser(loggedUser);
 
         // Fetch projects
@@ -37,7 +33,7 @@ export default function DashboardPage() {
     }
 
     loadData();
-  }, [router]);
+  }, []);
 
   const handleLogout = async () => {
     try {
