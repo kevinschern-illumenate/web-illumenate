@@ -3,6 +3,33 @@ import { NextRequest, NextResponse } from 'next/server';
 const ERP_URL = process.env.NEXT_PUBLIC_ERP_URL || 'http://localhost:8000';
 
 /**
+ * Fetch CSRF token from Frappe for session-based authentication
+ * @param cookies - Cookie string from the incoming request
+ * @returns CSRF token or null if unable to fetch
+ */
+async function getCSRFToken(cookies: string): Promise<string | null> {
+  try {
+    const response = await fetch(`${ERP_URL}/api/method/frappe.auth.get_csrf_token`, {
+      method: 'GET',
+      headers: {
+        'Accept': 'application/json',
+        'Cookie': cookies,
+      },
+    });
+    
+    if (!response.ok) {
+      return null;
+    }
+    
+    const data = await response.json();
+    return data.message || null;
+  } catch (error) {
+    console.warn('Failed to fetch CSRF token:', error instanceof Error ? error.message : 'Unknown error');
+    return null;
+  }
+}
+
+/**
  * Proxy handler for all ERP API requests
  * This allows client-side code to call /api/erp/... which gets proxied to the Frappe backend
  * Bypassing CORS issues
@@ -34,6 +61,17 @@ async function handler(
   const apiSecret = process.env.ERP_API_SECRET;
   if (apiKey && apiSecret) {
     headers['Authorization'] = `token ${apiKey}:${apiSecret}`;
+  }
+  
+  // For POST/PUT/DELETE/PATCH requests with session-based auth, fetch and include CSRF token
+  // CSRF token is NOT required when using API key/secret authentication
+  const methodsRequiringCSRF = ['POST', 'PUT', 'DELETE', 'PATCH'];
+  const hasApiKeyAuth = apiKey && apiSecret;
+  if (methodsRequiringCSRF.includes(request.method) && !hasApiKeyAuth) {
+    const csrfToken = await getCSRFToken(cookies);
+    if (csrfToken) {
+      headers['X-Frappe-CSRF-Token'] = csrfToken;
+    }
   }
   
   try {
