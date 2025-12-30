@@ -23,7 +23,8 @@ async function getCSRFToken(cookies: string): Promise<string | null> {
     
     const data = await response.json();
     return data.message || null;
-  } catch {
+  } catch (error) {
+    console.warn('Failed to fetch CSRF token:', error instanceof Error ? error.message : 'Unknown error');
     return null;
   }
 }
@@ -62,10 +63,11 @@ async function handler(
     headers['Authorization'] = `token ${apiKey}:${apiSecret}`;
   }
   
-  // For POST/PUT/DELETE/PATCH requests, fetch and include CSRF token
-  // This is required by Frappe for session-based authentication
+  // For POST/PUT/DELETE/PATCH requests with session-based auth, fetch and include CSRF token
+  // CSRF token is NOT required when using API key/secret authentication
   const methodsRequiringCSRF = ['POST', 'PUT', 'DELETE', 'PATCH'];
-  if (methodsRequiringCSRF.includes(request.method)) {
+  const hasApiKeyAuth = apiKey && apiSecret;
+  if (methodsRequiringCSRF.includes(request.method) && !hasApiKeyAuth) {
     const csrfToken = await getCSRFToken(cookies);
     if (csrfToken) {
       headers['X-Frappe-CSRF-Token'] = csrfToken;
