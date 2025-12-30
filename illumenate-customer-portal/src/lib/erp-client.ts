@@ -1,8 +1,20 @@
 import axios, { AxiosInstance, AxiosError } from 'axios';
 
+// Determine the base URL based on environment
+// - Client-side: Use the proxy route to avoid CORS issues
+// - Server-side: Use the direct ERP URL
+function getBaseURL(): string {
+  if (typeof window === 'undefined') {
+    // Server-side: use direct ERP URL
+    return process.env.NEXT_PUBLIC_ERP_URL || 'http://localhost:8000';
+  }
+  // Client-side: use the proxy route
+  return '/api/erp';
+}
+
 // Create axios instance for ERP API calls
 const erpClient: AxiosInstance = axios.create({
-  baseURL: process.env.NEXT_PUBLIC_ERP_URL,
+  baseURL: getBaseURL(),
   withCredentials: true,
   headers: {
     'Content-Type': 'application/json',
@@ -13,8 +25,8 @@ const erpClient: AxiosInstance = axios.create({
 // Request interceptor for adding auth headers and validating configuration
 erpClient.interceptors.request.use(
   (config) => {
-    // Check if ERP URL is configured
-    if (!process.env.NEXT_PUBLIC_ERP_URL) {
+    // Check if ERP URL is configured (only matters for server-side)
+    if (typeof window === 'undefined' && !process.env.NEXT_PUBLIC_ERP_URL) {
       const error = new Error('ERP URL not configured. Please set NEXT_PUBLIC_ERP_URL environment variable.');
       console.warn('ERP Configuration Warning:', error.message);
       return Promise.reject(error);
@@ -89,8 +101,8 @@ export async function testERPConnection(): Promise<{
   message: string;
   status?: number;
 }> {
-  // Check if ERP URL is configured first
-  if (!process.env.NEXT_PUBLIC_ERP_URL) {
+  // Check if ERP URL is configured first (only for server-side)
+  if (typeof window === 'undefined' && !process.env.NEXT_PUBLIC_ERP_URL) {
     return {
       success: false,
       message: 'ERP URL not configured. Please set NEXT_PUBLIC_ERP_URL environment variable.',
