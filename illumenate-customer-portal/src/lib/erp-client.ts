@@ -10,9 +10,16 @@ const erpClient: AxiosInstance = axios.create({
   },
 });
 
-// Request interceptor for adding auth headers
+// Request interceptor for adding auth headers and validating configuration
 erpClient.interceptors.request.use(
   (config) => {
+    // Check if ERP URL is configured
+    if (!process.env.NEXT_PUBLIC_ERP_URL) {
+      const error = new Error('ERP URL not configured. Please set NEXT_PUBLIC_ERP_URL environment variable.');
+      console.warn('ERP Configuration Warning:', error.message);
+      return Promise.reject(error);
+    }
+
     // Add API key/secret for server-side requests
     if (typeof window === 'undefined') {
       const apiKey = process.env.ERP_API_KEY;
@@ -58,9 +65,15 @@ erpClient.interceptors.response.use(
       }
     } else if (error.request) {
       // Request made but no response received
-      console.error('ERP Connection Error: No response received', {
-        url: error.config?.url,
-      });
+      const erpUrl = process.env.NEXT_PUBLIC_ERP_URL;
+      if (!erpUrl) {
+        console.warn('ERP Connection Error: ERP URL not configured. Please set NEXT_PUBLIC_ERP_URL environment variable.');
+      } else {
+        const requestUrl = error.config?.url 
+          ? new URL(error.config.url, erpUrl).toString() 
+          : erpUrl;
+        console.error(`ERP Connection Error: No response received from ${requestUrl}. Please ensure the ERP server is running.`);
+      }
     } else {
       // Error setting up the request
       console.error('ERP Request Error:', error.message);
@@ -76,6 +89,14 @@ export async function testERPConnection(): Promise<{
   message: string;
   status?: number;
 }> {
+  // Check if ERP URL is configured first
+  if (!process.env.NEXT_PUBLIC_ERP_URL) {
+    return {
+      success: false,
+      message: 'ERP URL not configured. Please set NEXT_PUBLIC_ERP_URL environment variable.',
+    };
+  }
+
   try {
     const response = await erpClient.get('/api/method/frappe.auth.get_logged_user');
     return {
@@ -98,9 +119,10 @@ export async function testERPConnection(): Promise<{
         message: `Cannot connect to ERP: ${error.message}`,
       };
     }
+    // Handle non-Axios errors (e.g., missing ERP URL configuration)
     return {
       success: false,
-      message: 'Unknown error occurred',
+      message: error instanceof Error ? error.message : 'Unknown error occurred',
     };
   }
 }
